@@ -849,12 +849,147 @@ impl Element {
     }
 }
 
+/// This macro creates a layout with specified constraints and direction.
+///
+/// # Syntax
+///
+/// The macro supports two main forms:
+/// - `layout!(h, $( $constraint:tt )+)`: Defines a horizontal layout with constraints.
+/// - `layout!(v, $( $constraint:tt )+)`: Defines a vertical layout with constraints.
+///
+/// Constraints are defined using a specific syntax:
+/// - `== $token:tt / $token2:tt`: Sets a ratio constraint between two tokens.
+/// - `== $token:tt %`: Sets a percentage constraint for the token.
+/// - `>= $token:tt`: Sets a minimum size constraint for the token.
+/// - `<= $token:tt`: Sets a maximum size constraint for the token.
+/// - `== $token:tt`: Sets a fixed size constraint for the token.
+///
+/// # Examples
+///
+/// ```
+/// // Horizontal layout with fixed size and percentage constraints
+/// use ratatui::layout;
+/// layout!(h, == 50, == 30%);
+/// ```
+///
+/// ```
+/// // Vertical layout with ratio and minimum size constraints
+/// use ratatui::layout;
+/// layout!(v, == 1/3, >= 100);
+/// ```
+///
+/// # Internal Implementation
+///
+/// - `@parse`: Internal rule to parse and accumulate constraints.
+/// - `@process`: Internal rule to convert tokens into constraints.
+/// - `@construct`: Internal rule to construct the final Layout with the specified direction and
+///   constraints.
+///
+/// This macro simplifies the process of creating complex layouts with various constraints.
+#[macro_export]
+macro_rules! layout {
+    // Horizontal layout variant
+    (h, $( $constraint:tt )+ ) => {
+        layout!(@construct $crate::prelude::Direction::Horizontal, layout!(@parse () $($constraint)+))
+    };
+    // Vertical layout variant
+    (v, $( $constraint:tt )+ ) => {
+        layout!(@construct $crate::prelude::Direction::Vertical, layout!(@parse () $($constraint)+))
+    };
+    // Internal parsing rule for constraints
+    // This rule checks if `,` exists after the `head` token
+    (@parse ($($acc:tt)*) $head:tt , $($tail:tt)*) => {
+        // Combines the head constraint with the tail constraints into a vector
+        std::iter::once(
+            layout!(@process ($($acc)* $head)) // -> Constraint
+        ).chain(
+            layout!(@parse () $($tail)*).into_iter() // -> Iterator with type Constraint
+        )
+    };
+    // If there is no `,` then accumulate `next` token into existing `acc` tokens
+    // and return `Iterator`
+    (@parse ($($acc:tt)*) $next:tt $($tail:tt)*) => {
+        layout!(@parse ($($acc)* $next) $($tail)*)
+    };
+    // At the end there will a set of tokens left after the last `,`
+    // Process that as a `Constraint`
+    (@parse ($($acc:tt)*)) => {
+        vec![layout!(@process ($($acc)*))]
+    };
+    // Process different types of constraints into a `Constraint`
+    (@process (== $token1:tt / $token2:tt)) => {
+        // Ratio constraint
+        {
+        let t1: u32 = $token1;
+        let t2: u32 = $token2;
+        $crate::prelude::Constraint::Ratio(t1, t2)
+        }
+    };
+    (@process (== $token:tt %)) => {
+        // Percentage constraint
+        $crate::prelude::Constraint::Percentage($token)
+    };
+    (@process (>= $token:tt)) => {
+        // Minimum size constraint
+        $crate::prelude::Constraint::Min($token)
+    };
+    (@process (<= $token:tt)) => {
+        // Maximum size constraint
+        $crate::prelude::Constraint::Max($token)
+    };
+    (@process (== $token:tt)) => {
+        // Fixed size constraint
+        $crate::prelude::Constraint::Length($token)
+    };
+    // Construct the final `Layout` object
+    (@construct $direction:expr, $constraints:expr) => {
+        $crate::prelude::Layout::default()
+            .direction($direction)
+            .constraints($constraints)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use strum::ParseError;
 
     use super::{SegmentSize::*, *};
-    use crate::prelude::Constraint::*;
+    use crate::{layout, prelude::Constraint::*};
+
+    #[test]
+    fn layout_macro_constraints() {
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        };
+
+        let [rect1, rect2] = layout!(v, ==7, <=3)
+            .split(rect)
+            .to_vec()
+            .try_into()
+            .unwrap();
+        assert_eq!(rect1, Rect::new(0, 0, 10, 7));
+        assert_eq!(rect2, Rect::new(0, 7, 10, 3));
+
+        let one = 1;
+        let two = 2;
+        let ten = 10;
+        let zero = 0;
+        let [a, b, c, d, e, f] = layout!(h, ==one, >=one, <=one, == 1 / two, == ten %, >=zero)
+            .split(rect)
+            .to_vec()
+            .try_into()
+            .unwrap();
+
+        assert_eq!(a, Rect::new(0, 0, 1, 10));
+        assert_eq!(b, Rect::new(1, 0, 1, 10));
+        assert_eq!(c, Rect::new(2, 0, 1, 10));
+        assert_eq!(d, Rect::new(3, 0, 5, 10));
+        assert_eq!(e, Rect::new(8, 0, 1, 10));
+        assert_eq!(f, Rect::new(9, 0, 1, 10));
+    }
 
     #[test]
     fn custom_cache_size() {
