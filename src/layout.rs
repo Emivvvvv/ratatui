@@ -849,13 +849,12 @@ impl Element {
     }
 }
 
-/// This macro creates a layout with specified constraints and direction.
+/// This macro creates an iterator of constraints.
 ///
 /// # Syntax
 ///
-/// The macro supports two main forms:
-/// - `layout!(h, $( $constraint:tt )+)`: Defines a horizontal layout with constraints.
-/// - `layout!(v, $( $constraint:tt )+)`: Defines a vertical layout with constraints.
+/// The macro supports the following form:
+/// - `constraints!([$( $constraint:tt )+])`
 ///
 /// Constraints are defined using a specific syntax:
 /// - `== $token:tt / $token2:tt`: Sets a ratio constraint between two tokens.
@@ -867,54 +866,55 @@ impl Element {
 /// # Examples
 ///
 /// ```
-/// // Horizontal layout with fixed size and percentage constraints
-/// use ratatui::layout;
-/// layout!(h, == 50, == 30%);
-/// ```
-///
-/// ```
-/// // Vertical layout with ratio and minimum size constraints
-/// use ratatui::layout;
-/// layout!(v, == 1/3, >= 100);
+/// use ratatui::constraints;
+/// constraints!([==5, ==30%, >=3, <=1, ==1/2]);
 /// ```
 ///
 /// # Internal Implementation
 ///
 /// - `@parse`: Internal rule to parse and accumulate constraints.
 /// - `@process`: Internal rule to convert tokens into constraints.
-/// - `@construct`: Internal rule to construct the final Layout with the specified direction and
-///   constraints.
 ///
-/// This macro simplifies the process of creating complex layouts with various constraints.
+/// This macro simplifies the process of creating various constraints.
 #[macro_export]
-macro_rules! layout {
-    // Horizontal layout variant
-    (h, $( $constraint:tt )+ ) => {
-        layout!(@construct $crate::prelude::Direction::Horizontal, layout!(@parse () $($constraint)+))
+macro_rules! constraints {
+    // Entry rule for constraints
+    // e.g. `[ ==100%, >=1, >=1 ]`
+    ([ $( $constraint:tt )+ ]) => {
+        // e.g. the tokens `==100%, >=1, >=1` are matched with @parse rules
+        $crate::constraints!(@parse () $($constraint)+)
     };
-    // Vertical layout variant
-    (v, $( $constraint:tt )+ ) => {
-        layout!(@construct $crate::prelude::Direction::Vertical, layout!(@parse () $($constraint)+))
-    };
-    // Internal parsing rule for constraints
+    // Internal parsing rules for constraints
     // This rule checks if `,` exists after the `head` token
+    // e.g. acc: `==100`; head: `%`; `,`; tail: `>=1, >=1` will match this rule
     (@parse ($($acc:tt)*) $head:tt , $($tail:tt)*) => {
         // Combines the head constraint with the tail constraints into a vector
         std::iter::once(
-            layout!(@process ($($acc)* $head)) // -> Constraint
+            // e.g. (acc head): `==100%`; this can be processed as a `Constraint`
+            $crate::constraints!(@process ($($acc)* $head)) // -> Constraint
         ).chain(
-            layout!(@parse () $($tail)*).into_iter() // -> Iterator with type Constraint
+            // e.g. tail: `>=1, >=1`; this can be parsed as a `Iterator<type = Constraint>`
+            $crate::constraints!(@parse () $($tail)*).into_iter() // -> Iterator with type Constraint
         )
     };
     // If there is no `,` then accumulate `next` token into existing `acc` tokens
     // and return `Iterator`
+    // e.g. for tokens `==100%, >=1, >=1`
+    // 1.   acc: ``      ; next: `=`        ; tail: `=100 %, >=1, >=1`    ; will match this rule
+    //      acc: `=`     ;                    tail: `=100 %, >=1, >=1`    ; is the next parse
+    // 2.   acc: `=`     ; next: `=`        ; tail: `100 %, >=1, >=1`     ; will match this rule again
+    //      acc: `==`    ;                    tail: `100 %, >=1, >=1`     ; is the next parse
+    // 3.   acc: `==`    ; next: `100`      ; tail: `%, >=1, >=1`         ; will match this rule again
+    //      acc: `==100` ;                    tail: `%, >=1, >=1`         ; is the next parse
+    // OR   acc: `==100` ; head: `%`; `,`;    tail: `>=1, >=1`            ; i.e. this is the match for the next parse
+    //                                ^^^ --------------------------------> this will match previous rule because of this comma
     (@parse ($($acc:tt)*) $next:tt $($tail:tt)*) => {
-        layout!(@parse ($($acc)* $next) $($tail)*)
+        $crate::constraints!(@parse ($($acc)* $next) $($tail)*)
     };
     // At the end there will a set of tokens left after the last `,`
     // Process that as a `Constraint`
     (@parse ($($acc:tt)*)) => {
-        vec![layout!(@process ($($acc)*))]
+        [$crate::constraints!(@process ($($acc)*))]
     };
     // Process different types of constraints into a `Constraint`
     (@process (== $token1:tt / $token2:tt)) => {
@@ -929,17 +929,72 @@ macro_rules! layout {
         // Percentage constraint
         $crate::prelude::Constraint::Percentage($token)
     };
-    (@process (>= $token:tt)) => {
+    (@process (>= $token:expr)) => {
         // Minimum size constraint
         $crate::prelude::Constraint::Min($token)
     };
-    (@process (<= $token:tt)) => {
+    (@process (<= $token:expr)) => {
         // Maximum size constraint
         $crate::prelude::Constraint::Max($token)
     };
-    (@process (== $token:tt)) => {
+    (@process (== $token:expr)) => {
         // Fixed size constraint
         $crate::prelude::Constraint::Length($token)
+    };
+}
+
+/// This macro creates a layout with specified constraints and direction.
+///
+/// # Syntax
+///
+/// The macro supports three main forms:
+/// - `layout!([$( $constraint:tt )+])`: Defines a default layout (vertical) with constraints.
+/// - `layout!([$( $constraint:tt )+], direction = h)`: Defines a horizontal layout with
+///   constraints.
+/// - `layout!([$( $constraint:tt )+], direction = v)`: Defines a vertical layout with constraints.
+///
+/// Constraints are defined using a specific syntax:
+/// - `== $token:tt / $token2:tt`: Sets a ratio constraint between two tokens.
+/// - `== $token:tt %`: Sets a percentage constraint for the token.
+/// - `>= $token:tt`: Sets a minimum size constraint for the token.
+/// - `<= $token:tt`: Sets a maximum size constraint for the token.
+/// - `== $token:tt`: Sets a fixed size constraint for the token.
+///
+/// # Examples
+///
+/// ```
+/// // Vertical layout with fixed size and percentage constraints
+/// use ratatui::layout;
+/// layout!([== 50, == 30%]);
+/// ```
+///
+/// ```
+/// // Horizontal layout with ratio and minimum size constraints
+/// use ratatui::layout;
+/// layout!([== 1/3, >= 100, <=4], direction = h);
+/// ```
+///
+/// # Internal Implementation
+///
+/// - `@construct`: Internal rule to construct the final Layout with the specified direction and
+///   constraints.
+///
+/// This macro simplifies the process of creating complex layouts with various constraints.
+#[macro_export]
+macro_rules! layout {
+    // Default layout variant
+    ([ $( $constraint:tt )+ ]) => {
+        $crate::layout!([ $( $constraint )+ ], direction = v)
+    };
+    // Horizontal layout variant
+    ([ $( $constraint:tt )+ ], direction = h) => {
+        // use internal `constraint!(@parse ...)` rule directly since it will always be an iterator
+        $crate::layout!(@construct $crate::prelude::Direction::Horizontal, $crate::constraints!(@parse () $($constraint)+))
+    };
+    // Vertical layout variant
+    ([ $( $constraint:tt )+ ], direction = v) => {
+        // use internal `constraint!(@parse ...)` rule directly since it will always be an iterator
+        $crate::layout!(@construct $crate::prelude::Direction::Vertical, $crate::constraints!(@parse () $($constraint)+))
     };
     // Construct the final `Layout` object
     (@construct $direction:expr, $constraints:expr) => {
@@ -954,10 +1009,10 @@ mod tests {
     use strum::ParseError;
 
     use super::{SegmentSize::*, *};
-    use crate::{layout, prelude::Constraint::*};
+    use crate::prelude::Constraint::*;
 
     #[test]
-    fn layout_macro_constraints() {
+    fn layout_constraints_macro() {
         let rect = Rect {
             x: 0,
             y: 0,
@@ -965,11 +1020,7 @@ mod tests {
             height: 10,
         };
 
-        let [rect1, rect2] = layout!(v, ==7, <=3)
-            .split(rect)
-            .to_vec()
-            .try_into()
-            .unwrap();
+        let [rect1, rect2] = layout!([==7, <=3]).split(rect).to_vec().try_into().unwrap();
         assert_eq!(rect1, Rect::new(0, 0, 10, 7));
         assert_eq!(rect2, Rect::new(0, 7, 10, 3));
 
@@ -977,11 +1028,12 @@ mod tests {
         let two = 2;
         let ten = 10;
         let zero = 0;
-        let [a, b, c, d, e, f] = layout!(h, ==one, >=one, <=one, == 1 / two, == ten %, >=zero)
-            .split(rect)
-            .to_vec()
-            .try_into()
-            .unwrap();
+        let [a, b, c, d, e, f] =
+            layout!([==one, >=one, <=one, == 1 / two, == ten %, >=zero], direction = h)
+                .split(rect)
+                .to_vec()
+                .try_into()
+                .unwrap();
 
         assert_eq!(a, Rect::new(0, 0, 1, 10));
         assert_eq!(b, Rect::new(1, 0, 1, 10));
@@ -989,6 +1041,43 @@ mod tests {
         assert_eq!(d, Rect::new(3, 0, 5, 10));
         assert_eq!(e, Rect::new(8, 0, 1, 10));
         assert_eq!(f, Rect::new(9, 0, 1, 10));
+
+        let one = 1;
+        let two = 2;
+        let ten = 10;
+        let zero = 0;
+        let [a, b, c, d, e, f] = layout!(
+            [
+                == one*one, // expr allowed here
+                >= one+zero, // expr allowed here
+                <= one-zero, // expr allowed here
+                == 1/two, // only single token allowed in numerator and denominator
+                == ten%, // only single token allowed before %
+                >= zero // no trailing comma
+            ],
+            direction = h
+        )
+        .split(rect)
+        .to_vec()
+        .try_into()
+        .unwrap();
+
+        assert_eq!(a, Rect::new(0, 0, 1, 10));
+        assert_eq!(b, Rect::new(1, 0, 1, 10));
+        assert_eq!(c, Rect::new(2, 0, 1, 10));
+        assert_eq!(d, Rect::new(3, 0, 5, 10));
+        assert_eq!(e, Rect::new(8, 0, 1, 10));
+        assert_eq!(f, Rect::new(9, 0, 1, 10));
+
+        let [a, b, c, d, e] = constraints!([>=0, ==1, <=5, ==10%, ==1/2])
+            .collect::<Vec<Constraint>>()
+            .try_into()
+            .unwrap();
+        assert_eq!(a, Constraint::Min(0));
+        assert_eq!(b, Constraint::Length(1));
+        assert_eq!(c, Constraint::Max(5));
+        assert_eq!(d, Constraint::Percentage(10));
+        assert_eq!(e, Constraint::Ratio(1, 2));
     }
 
     #[test]
