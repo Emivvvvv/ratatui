@@ -270,4 +270,12 @@ mod tests {
             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
         );
     }
+
+    #[test]
+    fn test_slice_to_bar() {
+        let bar_bar = Bar::new("Label", 42);
+        let slice_bar: Bar = ("Label", 42).into();
+
+        assert_eq!(bar_bar, slice_bar);
+    }
 }
