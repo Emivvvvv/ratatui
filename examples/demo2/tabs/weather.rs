@@ -101,10 +101,10 @@ fn render_simple_barchart(area: Rect, buf: &mut Buffer) {
                 } else {
                     Style::new().fg(Color::DarkGray).bg(Color::Yellow).bold()
                 })
-                .label(label.into())
+                .label(label)
         })
         .collect_vec();
-    let group = BarGroup::default().bars(&data);
+    let group = BarGroup::new(data);
     BarChart::default()
         .data(group)
         .bar_width(3)
@@ -115,15 +115,14 @@ fn render_simple_barchart(area: Rect, buf: &mut Buffer) {
 fn render_horizontal_barchart(area: Rect, buf: &mut Buffer) {
     let bg = Color::Rgb(32, 48, 96);
     let data = [
-        Bar::default().text_value("Winter 37-51".into()).value(51),
-        Bar::default().text_value("Spring 40-65".into()).value(65),
-        Bar::default().text_value("Summer 54-77".into()).value(77),
-        Bar::default()
-            .text_value("Fall 41-71".into())
-            .value(71)
+        Bar::new("", 51).text_value("Winter 37-51"),
+        Bar::new("", 65).text_value("Spring 40-65"),
+        Bar::new("", 77).text_value("Summer 54-77"),
+        Bar::new("", 71)
+            .text_value("Fall 41-71")
             .value_style(Style::new().bold()), // current season
     ];
-    let group = BarGroup::default().label("GPU".into()).bars(&data);
+    let group = BarGroup::new(data).label("GPU");
     BarChart::default()
         .block(Block::new().padding(Padding::new(0, 0, 2, 0)))
         .direction(Direction::Horizontal)

@@ -63,8 +63,16 @@ pub use bar_group::BarGroup;
 ///     .value_style(Style::new().red().bold())
 ///     .label_style(Style::new().white())
 ///     .data(&[("B0", 0), ("B1", 2), ("B2", 4), ("B3", 3)])
-///     .data(BarGroup::default().bars(&[Bar::default().value(10), Bar::default().value(20)]))
+///     .data(BarGroup::new([Bar::new("", 10), Bar::new("", 20)]))
 ///     .max(4);
+/// ```
+///
+/// For simpler usages, you can also create a `BarChart` simply by
+///
+/// ```rust
+/// use ratatui::{layout::Direction, widgets::BarChart};
+///
+/// BarChart::new([("A", 10), ("B", 20)], Direction::Vertical);
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct BarChart<'a> {
@@ -115,6 +123,34 @@ impl<'a> Default for BarChart<'a> {
 }
 
 impl<'a> BarChart<'a> {
+    /// Creates a new `BarChart` widget with the given bars.
+    ///
+    /// The `bars` parameter accepts an iterator containing item that can be converted into `Bar`
+    /// using the `Into` trait.
+    /// The `direction` parameter takes an enum value of [`Direction`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use ratatui::{
+    ///     layout::Direction,
+    ///     widgets::{Bar, BarChart},
+    /// };
+    ///
+    /// BarChart::new([Bar::new("A", 10), Bar::new("B", 10)], Direction::Vertical);
+    /// ```
+    pub fn new<Iter>(bars: Iter, direction: Direction) -> Self
+    where
+        Iter: IntoIterator,
+        Iter::Item: Into<Bar<'a>>,
+    {
+        Self {
+            data: vec![BarGroup::new(bars)],
+            direction,
+            ..Default::default()
+        }
+    }
+
     /// Add group of bars to the `BarChart`
     ///
     /// # Examples
@@ -127,7 +163,7 @@ impl<'a> BarChart<'a> {
     ///
     /// BarChart::default()
     ///     .data(&[("B0", 0), ("B1", 2), ("B2", 4), ("B3", 3)])
-    ///     .data(BarGroup::default().bars(&[Bar::default().value(10), Bar::default().value(20)]));
+    ///     .data(BarGroup::new([Bar::new("A", 10), Bar::new("B", 20)]));
     /// ```
     #[must_use = "method moves the value of self and returns the modified value"]
     pub fn data(mut self, data: impl Into<BarGroup<'a>>) -> Self {
@@ -872,11 +908,11 @@ mod tests {
     #[test]
     fn test_empty_group() {
         let chart = BarChart::default()
-            .data(BarGroup::default().label("invisible".into()))
+            .data(BarGroup::default().label("invisible"))
             .data(
                 BarGroup::default()
-                    .label("G".into())
-                    .bars(&[Bar::default().value(1), Bar::default().value(2)]),
+                    .label("G")
+                    .bars([Bar::default().value(1), Bar::default().value(2)]),
             );
 
         let mut buffer = Buffer::empty(Rect::new(0, 0, 3, 3));
@@ -892,12 +928,12 @@ mod tests {
 
     fn build_test_barchart<'a>() -> BarChart<'a> {
         BarChart::default()
-            .data(BarGroup::default().label("G1".into()).bars(&[
+            .data(BarGroup::default().label("G1").bars([
                 Bar::default().value(2),
                 Bar::default().value(3),
                 Bar::default().value(4),
             ]))
-            .data(BarGroup::default().label("G2".into()).bars(&[
+            .data(BarGroup::default().label("G2").bars([
                 Bar::default().value(3),
                 Bar::default().value(4),
                 Bar::default().value(5),
@@ -964,7 +1000,7 @@ mod tests {
     fn test_horizontal_bars_label_width_greater_than_bar(bar_color: Option<Color>) {
         let mut bar = Bar::default()
             .value(2)
-            .text_value("label".into())
+            .text_value("label")
             .value_style(Style::default().red());
 
         if let Some(color) = bar_color {
@@ -972,7 +1008,7 @@ mod tests {
         }
 
         let chart: BarChart<'_> = BarChart::default()
-            .data(BarGroup::default().bars(&[bar, Bar::default().value(5)]))
+            .data(BarGroup::default().bars([bar, Bar::default().value(5)]))
             .direction(Direction::Horizontal)
             .bar_style(Style::default().yellow())
             .value_style(Style::default().italic())
@@ -1039,8 +1075,8 @@ mod tests {
         let chart: BarChart<'_> = BarChart::default()
             .data(
                 BarGroup::default()
-                    .label(Span::from("G1").red().into())
-                    .bars(&[Bar::default().value(2)]),
+                    .label(Span::from("G1").red())
+                    .bars([Bar::default().value(2)]),
             )
             .group_gap(1)
             .direction(Direction::Horizontal)
@@ -1090,7 +1126,7 @@ mod tests {
         let chart: BarChart<'_> = BarChart::default().data(
             BarGroup::default()
                 .label(Line::from(Span::from("G")).alignment(Alignment::Right))
-                .bars(&[Bar::default().value(2), Bar::default().value(5)]),
+                .bars([Bar::default().value(2), Bar::default().value(5)]),
         );
 
         let mut buffer = Buffer::empty(Rect::new(0, 0, 3, 3));
@@ -1106,19 +1142,10 @@ mod tests {
 
     #[test]
     fn test_unicode_as_value() {
-        let group = BarGroup::default().bars(&[
-            Bar::default()
-                .value(123)
-                .label("B1".into())
-                .text_value("写".into()),
-            Bar::default()
-                .value(321)
-                .label("B2".into())
-                .text_value("写".into()),
-            Bar::default()
-                .value(333)
-                .label("B2".into())
-                .text_value("写".into()),
+        let group = BarGroup::default().bars([
+            Bar::default().value(123).label("B1").text_value("写"),
+            Bar::default().value(321).label("B2").text_value("写"),
+            Bar::default().value(333).label("B2").text_value("写"),
         ]);
         let chart = BarChart::default().data(group).bar_width(3).bar_gap(1);
 
@@ -1160,7 +1187,7 @@ mod tests {
             ("i", 8),
         ])
             .into();
-        group = group.label("Group".into());
+        group = group.label("Group");
 
         let chart = BarChart::default()
             .data(group)
@@ -1185,7 +1212,7 @@ mod tests {
             ("i", 8),
         ])
             .into();
-        group = group.label("Group".into());
+        group = group.label("Group");
 
         let chart = BarChart::default()
             .data(group)
@@ -1296,7 +1323,7 @@ mod tests {
     fn two_lines_without_bar_labels() {
         let group = BarGroup::default()
             .label(Line::from("Group").alignment(Alignment::Center))
-            .bars(&[
+            .bars([
                 Bar::default().value(0),
                 Bar::default().value(1),
                 Bar::default().value(2),
@@ -1324,7 +1351,7 @@ mod tests {
     fn one_lines_with_more_bars() {
         let bars: Vec<Bar> = (0..30).map(|i| Bar::default().value(i)).collect();
 
-        let chart = BarChart::default().data(BarGroup::default().bars(&bars));
+        let chart = BarChart::default().data(BarGroup::default().bars(bars));
 
         let mut buffer = Buffer::empty(Rect::new(0, 0, 59, 1));
         chart.render(buffer.area, &mut buffer);
@@ -1351,5 +1378,25 @@ mod tests {
             "a  b   ",
         ]);
         assert_eq!(buffer, expected);
+    }
+
+    #[test]
+    fn test_barchart_new() {
+        let bars = [
+            Bar::new("Red", 1).red(),
+            Bar::new("Green", 2).green(),
+            Bar::new("Blue", 3).blue(),
+        ];
+
+        let chart = BarChart::new(bars.clone(), Direction::Vertical);
+
+        assert_eq!(chart.data.len(), 1);
+        assert_eq!(chart.data[0].bars, bars);
+
+        let new_bars = [("RGB", 6)];
+
+        let updated_chart = chart.data(&new_bars);
+        assert_eq!(updated_chart.data.len(), 2);
+        assert_eq!(updated_chart.data[1].bars, [Bar::new("RGB", 6)]);
     }
 }

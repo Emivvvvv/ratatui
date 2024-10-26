@@ -157,9 +157,7 @@ impl Revenues {
         let bars: Vec<Bar> = zip(companies, self.revenues)
             .map(|(company, revenue)| company.vertical_revenue_bar(revenue))
             .collect();
-        BarGroup::default()
-            .label(Line::from(self.period).centered())
-            .bars(&bars)
+        BarGroup::new(bars).label(Line::from(self.period).centered())
     }
 
     /// Create a `BarGroup` with horizontal bars for each company
@@ -167,9 +165,7 @@ impl Revenues {
         let bars: Vec<Bar> = zip(companies, self.revenues)
             .map(|(company, revenue)| company.horizontal_revenue_bar(revenue))
             .collect();
-        BarGroup::default()
-            .label(Line::from(self.period).centered())
-            .bars(&bars)
+        BarGroup::new(bars).label(Line::from(self.period).centered())
     }
 }
 
@@ -188,9 +184,7 @@ impl Company {
     /// The label is the short name of the company, and will be displayed under the bar
     fn vertical_revenue_bar(&self, revenue: u32) -> Bar {
         let text_value = format!("{:.1}M", f64::from(revenue) / 1000.);
-        Bar::default()
-            .label(self.short_name.into())
-            .value(u64::from(revenue))
+        Bar::new(self.short_name, u64::from(revenue))
             .text_value(text_value)
             .style(self.color)
             .value_style(Style::new().fg(Color::Black).bg(self.color))
@@ -202,8 +196,7 @@ impl Company {
     /// on the bar
     fn horizontal_revenue_bar(&self, revenue: u32) -> Bar {
         let text_value = format!("{} ({:.1} M)", self.name, f64::from(revenue) / 1000.);
-        Bar::default()
-            .value(u64::from(revenue))
+        Bar::new("", u64::from(revenue))
             .text_value(text_value)
             .style(self.color)
             .value_style(Style::new().fg(Color::Black).bg(self.color))

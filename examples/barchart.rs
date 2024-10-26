@@ -87,16 +87,13 @@ fn vertical_barchart(temperatures: &[u8]) -> BarChart {
         .map(|(hour, value)| vertical_bar(hour, value))
         .collect();
     let title = Line::from("Weather (Vertical)").centered();
-    BarChart::default()
-        .data(BarGroup::default().bars(&bars))
+    BarChart::new(bars, Direction::Vertical)
         .block(Block::new().title(title))
         .bar_width(5)
 }
 
 fn vertical_bar(hour: usize, temperature: &u8) -> Bar {
-    Bar::default()
-        .value(u64::from(*temperature))
-        .label(Line::from(format!("{hour:>02}:00")))
+    Bar::new(format!("{hour:>02}:00"), u64::from(*temperature))
         .text_value(format!("{temperature:>3}°"))
         .style(temperature_style(*temperature))
         .value_style(temperature_style(*temperature).reversed())
@@ -112,7 +109,7 @@ fn horizontal_barchart(temperatures: &[u8]) -> BarChart {
     let title = Line::from("Weather (Horizontal)").centered();
     BarChart::default()
         .block(Block::new().title(title))
-        .data(BarGroup::default().bars(&bars))
+        .data(BarGroup::new(bars))
         .bar_width(1)
         .bar_gap(0)
         .direction(Direction::Horizontal)
@@ -120,9 +117,7 @@ fn horizontal_barchart(temperatures: &[u8]) -> BarChart {
 
 fn horizontal_bar(hour: usize, temperature: &u8) -> Bar {
     let style = temperature_style(*temperature);
-    Bar::default()
-        .value(u64::from(*temperature))
-        .label(Line::from(format!("{hour:>02}:00")))
+    Bar::new(format!("{hour:>02}:00"), u64::from(*temperature))
         .text_value(format!("{temperature:>3}°"))
         .style(style)
         .value_style(style.reversed())

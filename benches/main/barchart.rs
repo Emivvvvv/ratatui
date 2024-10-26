@@ -13,14 +13,10 @@ fn barchart(c: &mut Criterion) {
 
     for data_count in [64, 256, 2048] {
         let data: Vec<Bar> = (0..data_count)
-            .map(|i| {
-                Bar::default()
-                    .label(format!("B{i}").into())
-                    .value(rng.gen_range(0..data_count))
-            })
+            .map(|i| Bar::new(format!("B{i}"), rng.gen_range(0..data_count)))
             .collect();
 
-        let bargroup = BarGroup::default().bars(&data);
+        let bargroup = BarGroup::new(data);
 
         // Render a basic barchart
         group.bench_with_input(

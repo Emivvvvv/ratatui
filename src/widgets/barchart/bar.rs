@@ -1,6 +1,13 @@
 use unicode_width::UnicodeWidthStr;
 
-use crate::{buffer::Buffer, layout::Rect, style::Style, text::Line, widgets::Widget};
+use crate::{
+    buffer::Buffer,
+    layout::Rect,
+    style::{Style, Styled},
+    text::Line,
+    widgets::Widget,
+};
+
 /// A bar to be shown by the [`BarChart`](crate::widgets::BarChart) widget.
 ///
 /// Here is an explanation of a `Bar`'s components.
@@ -21,10 +28,8 @@ use crate::{buffer::Buffer, layout::Rect, style::Style, text::Line, widgets::Wid
 ///     widgets::Bar,
 /// };
 ///
-/// Bar::default()
-///     .label("Bar 1".into())
-///     .value(10)
-///     .style(Style::new().red())
+/// let bar = Bar::new("Bar 1", 10)
+///     .red()
 ///     .value_style(Style::new().red().on_white())
 ///     .text_value("10°C".to_string());
 /// ```
@@ -43,14 +48,33 @@ pub struct Bar<'a> {
 }
 
 impl<'a> Bar<'a> {
+    /// Creates a new `Bar` with the given label and value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ratatui::widgets::Bar;
+    ///
+    /// let bar = Bar::new("Label", 42);
+    /// ```
+    pub fn new(label: impl Into<Line<'a>>, value: u64) -> Self {
+        Self {
+            value,
+            label: Some(label.into()),
+            style: Style::new(),
+            value_style: Style::new(),
+            text_value: None,
+        }
+    }
+
     /// Set the value of this bar.
     ///
     /// The value will be displayed inside the bar.
     ///
     /// # See also
     ///
-    /// [`Bar::value_style`] to style the value.
-    /// [`Bar::text_value`] to set the displayed value.
+    /// - [`Bar::value_style`] to style the value.
+    /// - [`Bar::text_value`] to set the displayed value.
     #[must_use = "method moves the value of self and returns the modified value"]
     pub const fn value(mut self, value: u64) -> Self {
         self.value = value;
@@ -65,8 +89,8 @@ impl<'a> Bar<'a> {
     /// display the label **in** the bar.
     /// See [`BarChart::direction`](crate::widgets::BarChart::direction) to set the direction.
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn label(mut self, label: Line<'a>) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Line<'a>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -109,8 +133,8 @@ impl<'a> Bar<'a> {
     ///
     /// [`Bar::value`] to set the value.
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn text_value(mut self, text_value: String) -> Self {
-        self.text_value = Some(text_value);
+    pub fn text_value(mut self, text_value: impl Into<String>) -> Self {
+        self.text_value = Some(text_value.into());
         self
     }
 
@@ -204,5 +228,46 @@ impl<'a> Bar<'a> {
         if let Some(label) = &self.label {
             label.render(area, buf);
         }
+    }
+}
+
+impl<'a> From<(&'a str, u64)> for Bar<'a> {
+    fn from((label, value): (&'a str, u64)) -> Self {
+        Bar::new(label, value)
+    }
+}
+
+impl<'a> Styled for Bar<'a> {
+    type Item = Self;
+
+    fn style(&self) -> Style {
+        self.style
+    }
+
+    fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
+        self.style = style.into();
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::style::{Color, Modifier, Style, Stylize};
+
+    #[test]
+    fn test_bar_new() {
+        let bar = Bar::new("Label", 42);
+        assert_eq!(bar.label, Some(Line::from("Label")));
+        assert_eq!(bar.value, 42);
+    }
+
+    #[test]
+    fn test_bar_stylized() {
+        let bar = Bar::new("Label", 42).red().bold();
+        assert_eq!(
+            bar.style,
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+        );
     }
 }

@@ -11,11 +11,13 @@ use crate::{
 /// # Examples
 ///
 /// ```
-/// use ratatui::widgets::{Bar, BarGroup};
+/// use ratatui::{
+///     style::{Style, Stylize},
+///     widgets::{Bar, BarGroup},
+/// };
 ///
-/// BarGroup::default()
-///     .label("Group 1".into())
-///     .bars(&[Bar::default().value(200), Bar::default().value(150)]);
+/// let group =
+///     BarGroup::new([Bar::new("Red", 200).red(), Bar::new("Blue", 150).blue()]).label("Group 1");
 /// ```
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct BarGroup<'a> {
@@ -26,17 +28,44 @@ pub struct BarGroup<'a> {
 }
 
 impl<'a> BarGroup<'a> {
+    /// Creates a new `BarGroup` with the given bars.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ratatui::{
+    ///     style::{Style, Stylize},
+    ///     widgets::{Bar, BarGroup},
+    /// };
+    ///
+    /// let group = BarGroup::new([Bar::new("A", 10), Bar::new("B", 20)]);
+    /// ```
+    pub fn new<I, B>(bars: I) -> Self
+    where
+        I: IntoIterator<Item = B>,
+        B: Into<Bar<'a>>,
+    {
+        Self {
+            bars: bars.into_iter().map(std::convert::Into::into).collect(),
+            ..Self::default()
+        }
+    }
+
     /// Set the group label
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn label(mut self, label: Line<'a>) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Line<'a>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
     /// Set the bars of the group to be shown
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn bars(mut self, bars: &[Bar<'a>]) -> Self {
-        self.bars = bars.to_vec();
+    pub fn bars<Iter>(mut self, bars: Iter) -> Self
+    where
+        Iter: IntoIterator,
+        Iter::Item: Into<Bar<'a>>,
+    {
+        self.bars = bars.into_iter().map(std::convert::Into::into).collect();
         self
     }
 
@@ -73,10 +102,7 @@ impl<'a> From<&[(&'a str, u64)]> for BarGroup<'a> {
     fn from(value: &[(&'a str, u64)]) -> Self {
         Self {
             label: None,
-            bars: value
-                .iter()
-                .map(|&(text, v)| Bar::default().value(v).label(text.into()))
-                .collect(),
+            bars: value.iter().map(|&(text, v)| Bar::new(text, v)).collect(),
         }
     }
 }
@@ -92,5 +118,17 @@ impl<'a> From<&Vec<(&'a str, u64)>> for BarGroup<'a> {
     fn from(value: &Vec<(&'a str, u64)>) -> Self {
         let array: &[(&str, u64)] = value;
         Self::from(array)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bargroup_new() {
+        let group = BarGroup::new([Bar::new("Label1", 1), Bar::new("Label2", 2)]).label("Group1");
+        assert_eq!(group.label, Some(Line::from("Group1")));
+        assert_eq!(group.bars.len(), 2);
     }
 }
