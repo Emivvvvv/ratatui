@@ -1,7 +1,7 @@
 use ratatui::{
     backend::TestBackend,
     buffer::Buffer,
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     widgets::{Bar, BarChart, BarGroup, Block},
     Terminal,
 };
@@ -50,12 +50,9 @@ fn widgets_barchart_group() {
                         Bar::default()
                             .value(10)
                             .label("C1")
-                            .style(Style::default().fg(Color::Red))
+                            .red()
                             .value_style(Style::default().fg(Color::Blue)),
-                        Bar::default()
-                            .value(20)
-                            .style(Style::default().fg(Color::Green))
-                            .text_value("20M"),
+                        Bar::default().value(20).green().text_value("20M"),
                     ]),
                 )
                 .data(&vec![("C1", 50), ("C2", 40)])
