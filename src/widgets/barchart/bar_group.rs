@@ -14,7 +14,7 @@ use crate::{
 /// use ratatui::widgets::{Bar, BarGroup};
 ///
 /// BarGroup::default()
-///     .label("Group 1".into())
+///     .label("Group 1")
 ///     .bars(&[Bar::default().value(200), Bar::default().value(150)]);
 /// ```
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
@@ -28,8 +28,8 @@ pub struct BarGroup<'a> {
 impl<'a> BarGroup<'a> {
     /// Set the group label
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn label(mut self, label: Line<'a>) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Line<'a>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -75,7 +75,7 @@ impl<'a> From<&[(&'a str, u64)]> for BarGroup<'a> {
             label: None,
             bars: value
                 .iter()
-                .map(|&(text, v)| Bar::default().value(v).label(text.into()))
+                .map(|&(text, v)| Bar::default().value(v).label(text))
                 .collect(),
         }
     }

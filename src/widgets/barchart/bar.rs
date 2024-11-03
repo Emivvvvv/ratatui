@@ -22,11 +22,11 @@ use crate::{buffer::Buffer, layout::Rect, style::Style, text::Line, widgets::Wid
 /// };
 ///
 /// Bar::default()
-///     .label("Bar 1".into())
+///     .label("Bar 1")
 ///     .value(10)
 ///     .style(Style::new().red())
 ///     .value_style(Style::new().red().on_white())
-///     .text_value("10°C".to_string());
+///     .text_value("10°C");
 /// ```
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Bar<'a> {
@@ -65,8 +65,8 @@ impl<'a> Bar<'a> {
     /// display the label **in** the bar.
     /// See [`BarChart::direction`](crate::widgets::BarChart::direction) to set the direction.
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn label(mut self, label: Line<'a>) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Line<'a>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -109,8 +109,8 @@ impl<'a> Bar<'a> {
     ///
     /// [`Bar::value`] to set the value.
     #[must_use = "method moves the value of self and returns the modified value"]
-    pub fn text_value(mut self, text_value: String) -> Self {
-        self.text_value = Some(text_value);
+    pub fn text_value(mut self, text_value: impl Into<String>) -> Self {
+        self.text_value = Some(text_value.into());
         self
     }
 
